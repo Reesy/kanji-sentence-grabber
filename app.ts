@@ -1,5 +1,6 @@
 import express from 'express';
-import Puppeteer from 'puppeteer';
+import * as cheerio from 'cheerio';
+import axios from 'axios';
 
 const app: express.Application = express();
 
@@ -13,31 +14,27 @@ app.get('/api/japanese-english', async (req: express.Request, res: express.Respo
   res.json({ message: 'Hello World!' });
 });
 
-app.get('/api/english-japanese', (req: express.Request, res: express.Response) =>
+app.get('/api/english-japanese', async (req: express.Request, res: express.Response) =>
 { 
+  //I want to call using axios https://ejje.weblio.jp/sentence/content/%E3%81%8A%E3%81%84%E3%81%A7
+  //I want to get the sentence and the translation
+  let response = await axios.get("https://ejje.weblio.jp/sentence/content/%E3%81%8A%E3%81%84%E3%81%A7");
+  let $ = cheerio.load(response.data);
+  let sentence = $('#main > div:nth-child(8) > div.kijiWrp > div > div:nth-child(3) > p.qotCJJ > b > b').text();
+  let translation = $('#main > div:nth-child(8) > div.kijiWrp > div > div:nth-child(3) > p.qotCJJ > b > b').next().text();
+  res.json({ sentence: sentence, translation: translation });
 
 
-
-  fetch('http://example.com/movies.json')
-  .then(response => response.json())
-  .then(data => console.log(data));
-
-
-
-  // res.json({ message: 'Hello World!' });
 });
-
-
-
 
 
 let grabber = async (word: string) => {
   const browser = await Puppeteer.launch();
   const page = await browser.newPage();
-  await page.goto('https://ejje.weblio.jp/sentence/content/%E3%81%8A%E3%81%84%E3%81%A7 ');
+  await page.goto('https://ejje.weblio.jp/sentence/content/%E3%81%8A%E3%81%84%E3%81%A7');
   await page.waitForXPath('//*[@id="main"]/div[7]/div[2]/div/div[2]/p[1]/b/b');
   // let test = document.querySelector('#main > div:nth-child(8) > div.kijiWrp > div > div:nth-child(3) > p.qotCJJ > b > b');
-  console.log(test);
+  // console.log(test);
   console.log('Done');
 
   await page.screenshot({ path: 'example.png' });
