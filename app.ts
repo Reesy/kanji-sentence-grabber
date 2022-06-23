@@ -15,7 +15,17 @@ app.get('/api/japanese-english', async (req: express.Request, res: express.Respo
 });
 
 
+interface extractedJapaneseSentenceComponents
+{
+  jp: string[];
+  romaji: string[];
+}
 
+interface extractedJapaneseSentence
+{
+  jp: string;
+  romaji: string;
+}
 interface sentenceBody
 {
   jp: string;
@@ -25,8 +35,8 @@ interface sentenceBody
 
 
 let englishSentences: string[] = [];
-let japaneseSentences: string[] = [""];
-let romajiSentences : string[] = [];
+let japaneseSentences: string[] = [];
+let romajiSentences: string[] = [];
 
 app.get('/api/english-japanese', async (req: express.Request, res: express.Response) =>
 {
@@ -40,28 +50,31 @@ app.get('/api/english-japanese', async (req: express.Request, res: express.Respo
       {
         $(sentenceCollection).children().each((y, sentenceContainer: any) =>
         {
-          if (sentenceContainer.attribs.class === "entry-menu-wrap")
+          switch (sentenceContainer.attribs.class)
           {
-            return;
-          }
-          sentenceExtractor(sentenceContainer);
+            case "s-jp": // empty
+              let extractedSentenceComponents: extractedJapaneseSentenceComponents = extractJapaneseSentence(sentenceContainer);
+              let fullJPSentence = buildJapaneseSentence(extractedSentenceComponents.jp);
+              let fullRomajiSentence = buildRomajiSentence(extractedSentenceComponents.romaji);
+              japaneseSentences.push(fullJPSentence);
+              romajiSentences.push(fullRomajiSentence);
+              break;
+            case "s-en": // empty
+              let extractedEnglishSentence = extractEnglishSentence(sentenceContainer);
+              englishSentences.push(extractedEnglishSentence);
+              break;
+
+          };
+
         });
-        // console.log(i);
-        // console.log('elem', $(elem).text());
 
       });
 
-  let sentences = $("#App > main > div.ResultsWrapper > div.results-main-container > section > div > dl > div:nth-child(1) > dt")
-  let translations = $("#App > main > div.ResultsWrapper > div.results-main-container > section > div > dl > div:nth-child(1) > dt > a:nth-child(1) > ruby")
-
-  let sentence = sentences.text();
-  let translation = translations.text();
-
-  console.log(japaneseSentences);
-  res.json({ sentence: sentence, translation: translation });
+  res.json({ JPSentences: japaneseSentences, romajiSentences: romajiSentences, englishSentences: englishSentences });
 
 
 });
+
 let grabber = async (word: string) =>
 {
   let response = await axios.get("https://ejje.weblio.jp/sentence/content/" + word);
@@ -69,21 +82,101 @@ let grabber = async (word: string) =>
   return response;
 }
 
-// A function named sentenceExtractor that returns a sentenceBody object.
-let sentenceExtractor = (html: string) =>
-{
 
-  
+function extractEnglishSentence(_sentenceContainer: any): string
+{ 
 
-  let transientSentenceBody: sentenceBody = 
+  let englishSentence: string = "";
+  if (_sentenceContainer.children.length === 0)
   { 
-    jp: "shouldBeJP", 
-    en: "shouldBeEn", 
-    romaji: "shouldBeRomaji"
+    console.log('sentence container had no top level children');
+    return '';
+  }
+
+  if (typeof(_sentenceContainer.children[0].children) === "undefined")
+  {
+    console.log('There is no data for english word entries in the span/mark tag');
+    return '';
   };
 
-    return transientSentenceBody;
-}
+  _sentenceContainer.children[0].children.forEach((tags: any) =>  
+  { 
+    if (tags.type === "text")
+    {
+      englishSentence += tags.data;
+    }
+  });
+
+
+  return englishSentence;
+};
+
+// A function named sentenceExtractor that returns a sentenceBody object.
+function extractJapaneseSentence(_sentenceContainer: any): extractedJapaneseSentenceComponents
+{
+  let sentenceComponents: extractedJapaneseSentenceComponents = {
+    jp: [],
+    romaji: []
+  };
+
+
+  if (_sentenceContainer.children.length === 0)
+  {
+    console.log('Found one without');
+    return sentenceComponents;
+  }
+
+  _sentenceContainer.children.forEach((sentenceTags: any) =>  
+  {
+    if (typeof (sentenceTags.children) === "undefined")
+    {
+      console.log('Tags have no children');
+      return;
+    }
+
+    sentenceTags.children.forEach((sentence: any) =>
+    {
+      if (typeof (sentence.children) === "undefined")
+      {
+        console.log('sentence has no children');
+        return;
+      }
+
+      if (sentence.name === "ruby")
+      {
+        sentenceComponents.jp.push(sentence.children[0].data); // japanese
+        sentenceComponents.romaji.push(sentence.children[1].children[0].data); // romaji
+      }
+    });
+
+
+  });
+
+  return sentenceComponents;
+
+};
+
+function buildRomajiSentence(romajiSentence: string[]): string
+{
+  let romajiSentenceString: string = "";
+  romajiSentence.forEach((sentence: string) =>
+  {
+    romajiSentenceString += sentence;
+  }
+  );
+  return romajiSentenceString;
+};
+
+
+function buildJapaneseSentence(japaneseSentence: string[]): string
+{
+  let japaneseSentenceString: string = "";
+  japaneseSentence.forEach((sentence: string) =>
+  {
+    japaneseSentenceString += sentence;
+  });
+  return japaneseSentenceString;
+};
 
 
 
