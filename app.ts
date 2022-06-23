@@ -7,30 +7,18 @@ const app: express.Application = express();
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 
-app.get('/api/japanese-english', async (req: express.Request, res: express.Response) =>
-{
 
-  await grabber("test");
-  res.json({ message: 'Hello World!' });
-});
-
-
-interface extractedJapaneseSentenceComponents
+interface extractedJapaneseSentences
 {
   jp: string[];
   romaji: string[];
 }
 
-interface extractedJapaneseSentence
-{
-  jp: string;
-  romaji: string;
-}
 interface sentenceBody
 {
-  jp: string;
-  en: string;
-  romaji: string;
+  jp: string[];
+  en: string[];
+  romaji: string[];
 };
 
 
@@ -38,12 +26,15 @@ let englishSentences: string[] = [];
 let japaneseSentences: string[] = [];
 let romajiSentences: string[] = [];
 
-app.get('/api/english-japanese', async (req: express.Request, res: express.Response) =>
+app.get('/api/v1/japanese', async (req: express.Request, res: express.Response) =>
 {
 
-  let response = await axios.get("https://tangorin.com/sentences?search=%E7%B5%B1%E8%A8%88");
+  let searchURI = "https://tangorin.com/sentences?search=" + req.query.phrase;
+  let escapedURI = encodeURI(searchURI);
+  let response = await axios.get(escapedURI);
+  
   let $ = cheerio.load(response.data);
-
+  
   $("#App > main > div.ResultsWrapper > div.results-main-container > section > div > dl").children()
     .each(
       (i, sentenceCollection) =>
@@ -53,7 +44,7 @@ app.get('/api/english-japanese', async (req: express.Request, res: express.Respo
           switch (sentenceContainer.attribs.class)
           {
             case "s-jp": // empty
-              let extractedSentenceComponents: extractedJapaneseSentenceComponents = extractJapaneseSentence(sentenceContainer);
+              let extractedSentenceComponents: extractedJapaneseSentences = extractJapaneseSentence(sentenceContainer);
               let fullJPSentence = buildJapaneseSentence(extractedSentenceComponents.jp);
               let fullRomajiSentence = buildRomajiSentence(extractedSentenceComponents.romaji);
               japaneseSentences.push(fullJPSentence);
@@ -70,8 +61,18 @@ app.get('/api/english-japanese', async (req: express.Request, res: express.Respo
 
       });
 
-  res.json({ JPSentences: japaneseSentences, romajiSentences: romajiSentences, englishSentences: englishSentences });
 
+
+  let responseSentenceBody: sentenceBody = {
+    jp: japaneseSentences,
+    en: englishSentences,
+    romaji: romajiSentences
+  };
+  res.json(responseSentenceBody);
+
+  japaneseSentences = [];
+  romajiSentences = [];
+  englishSentences = [];
 
 });
 
@@ -112,9 +113,9 @@ function extractEnglishSentence(_sentenceContainer: any): string
 };
 
 // A function named sentenceExtractor that returns a sentenceBody object.
-function extractJapaneseSentence(_sentenceContainer: any): extractedJapaneseSentenceComponents
+function extractJapaneseSentence(_sentenceContainer: any): extractedJapaneseSentences
 {
-  let sentenceComponents: extractedJapaneseSentenceComponents = {
+  let sentenceComponents: extractedJapaneseSentences = {
     jp: [],
     romaji: []
   };
@@ -130,7 +131,6 @@ function extractJapaneseSentence(_sentenceContainer: any): extractedJapaneseSent
   {
     if (typeof (sentenceTags.children) === "undefined")
     {
-      console.log('Tags have no children');
       return;
     }
 
