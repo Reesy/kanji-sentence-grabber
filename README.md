@@ -1,5 +1,10 @@
 # kanji-sentence-grabber
 
+```diff
+- This project is currently a rough proof of concept
+- It will be restarted with tests when I have a good idea of where I want this project to go
+```
+
 A REST API that, when given a Japanese word or phrase returns a big list of sentences. 
 
 This project uses NodeJS and Typescript.
